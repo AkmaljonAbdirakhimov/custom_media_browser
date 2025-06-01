@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/media_file.dart';
 import '../screens/media_browser_screen.dart';
+import '../screens/file_browser_screen.dart';
 
 class MediaPicker {
   /// Open the media picker and return selected media files
@@ -35,5 +36,21 @@ class MediaPicker {
     if (result == null) return null;
 
     return result.where((file) => file.isDocument).toList();
+  }
+
+  /// Open the file browser to browse and select files from the device
+  static Future<List<MediaFile>?> browseFiles(
+    BuildContext context, {
+    String? initialDirectory,
+  }) async {
+    final result = await Navigator.push<List<MediaFile>>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => FileBrowserScreen(initialDirectory: initialDirectory),
+      ),
+    );
+
+    return result;
   }
 }

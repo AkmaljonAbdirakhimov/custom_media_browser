@@ -1,18 +1,22 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/media_file.dart';
+import '../services/file_opener_service.dart';
 
 class MediaPreviewScreen extends StatefulWidget {
   final MediaFile file;
 
-  const MediaPreviewScreen({Key? key, required this.file}) : super(key: key);
+  const MediaPreviewScreen({super.key, required this.file});
 
   @override
   State<MediaPreviewScreen> createState() => _MediaPreviewScreenState();
 }
 
 class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
+  final FileOpenerService _fileOpener = FileOpenerService();
   VideoPlayerController? _controller;
   bool _isVideoPlaying = false;
   bool _isVideoInitialized = false;
@@ -24,15 +28,6 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
     if (widget.file.isVideo) {
       _initializeVideoController();
     }
-
-    // Auto-hide controls after a delay
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _isControlsVisible = false;
-        });
-      }
-    });
   }
 
   @override
@@ -114,22 +109,45 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
     }
   }
 
+  Future<void> _shareFile() async {
+    try {
+      final file = File(widget.file.path);
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Sharing ${widget.file.displayName}');
+    } catch (e) {
+      debugPrint('Error sharing file: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not share file: $e')));
+    }
+  }
+
   Widget _buildImagePreview() {
     return GestureDetector(
       onTap: _toggleControls,
       child: Center(
         child: Hero(
           tag: widget.file.id,
-          child: InteractiveViewer(
-            minScale: 0.5,
-            maxScale: 4.0,
-            child: Image.file(
-              File(widget.file.path),
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Center(
+          child: PhotoView(
+            imageProvider: FileImage(File(widget.file.path)),
+            minScale: PhotoViewComputedScale.contained,
+            maxScale: PhotoViewComputedScale.covered * 2,
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
+            loadingBuilder:
+                (context, event) => Center(
+                  child: CircularProgressIndicator(
+                    value:
+                        event == null
+                            ? 0
+                            : event.cumulativeBytesLoaded /
+                                event.expectedTotalBytes!,
+                  ),
+                ),
+            errorBuilder:
+                (context, error, stackTrace) => Center(
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.broken_image,
@@ -138,14 +156,12 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Failed to load image',
+                        'Could not load image',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                     ],
                   ),
-                );
-              },
-            ),
+                ),
           ),
         ),
       ),
@@ -224,38 +240,71 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
   }
 
   Widget _buildDocumentPreview() {
+    final ext = widget.file.extension.toLowerCase();
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(widget.file.iconData, size: 100, color: Colors.grey[700]),
+          Icon(widget.file.iconData, size: 100, color: _getDocumentColor(ext)),
           const SizedBox(height: 24),
           Text(
             widget.file.displayName,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            '${widget.file.extension.toUpperCase()} File · ${widget.file.formattedSize}',
+            widget.file.fileType,
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
+          if (widget.file.size != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              widget.file.formattedSize,
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
           const SizedBox(height: 32),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.open_in_new),
-            label: const Text('Open with system viewer'),
-            onPressed: () {
-              // In a real app, we would use url_launcher or other plugins
-              // to open the document with the system viewer
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Opening document with system viewer...'),
-                ),
-              );
-            },
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Open'),
+                onPressed: () async {
+                  await _fileOpener.openFile(context, widget.file);
+                },
+              ),
+              const SizedBox(width: 16),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.share),
+                label: const Text('Share'),
+                onPressed: _shareFile,
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Color _getDocumentColor(String ext) {
+    if (['pdf'].contains(ext)) {
+      return Colors.red[700]!;
+    } else if (['doc', 'docx', 'odt', 'rtf', 'txt'].contains(ext)) {
+      return Colors.blue[700]!;
+    } else if (['xls', 'xlsx', 'csv', 'ods'].contains(ext)) {
+      return Colors.green[700]!;
+    } else if (['ppt', 'pptx', 'odp'].contains(ext)) {
+      return Colors.orange[700]!;
+    } else if (['zip', 'rar', '7z', 'tar', 'gz'].contains(ext)) {
+      return Colors.purple[700]!;
+    } else if (['epub', 'mobi', 'azw', 'azw3'].contains(ext)) {
+      return Colors.teal[700]!;
+    }
+
+    return Colors.grey[700]!;
   }
 
   String _formatDuration(Duration duration) {
@@ -277,6 +326,10 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
         elevation: 0,
         title: _isControlsVisible ? Text(widget.file.displayName) : null,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          if (_isControlsVisible)
+            IconButton(icon: const Icon(Icons.share), onPressed: _shareFile),
+        ],
       ),
       extendBodyBehindAppBar: true,
       body: SafeArea(

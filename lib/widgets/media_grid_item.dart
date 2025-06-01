@@ -68,6 +68,32 @@ class _MediaGridItemState extends State<MediaGridItem> {
     }
   }
 
+  // Get color based on file type
+  Color _getFileTypeColor() {
+    if (widget.file.isDirectory) {
+      return Colors.amber[700]!;
+    }
+
+    final ext = widget.file.extension.toLowerCase();
+
+    // Document colors
+    if (['pdf'].contains(ext)) {
+      return Colors.red[700]!;
+    } else if (['doc', 'docx', 'odt', 'rtf', 'txt'].contains(ext)) {
+      return Colors.blue[700]!;
+    } else if (['xls', 'xlsx', 'csv', 'ods'].contains(ext)) {
+      return Colors.green[700]!;
+    } else if (['ppt', 'pptx', 'odp'].contains(ext)) {
+      return Colors.orange[700]!;
+    } else if (['zip', 'rar', '7z', 'tar', 'gz'].contains(ext)) {
+      return Colors.purple[700]!;
+    } else if (['epub', 'mobi', 'azw', 'azw3'].contains(ext)) {
+      return Colors.teal[700]!;
+    }
+
+    return Colors.grey[700]!;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -111,7 +137,7 @@ class _MediaGridItemState extends State<MediaGridItem> {
         ),
 
         // Video duration
-        if (widget.file.isVideo)
+        if (widget.file.isVideo && !widget.file.isDirectory)
           Positioned(
             bottom: 4,
             right: 4,
@@ -136,7 +162,7 @@ class _MediaGridItemState extends State<MediaGridItem> {
           ),
 
         // Document type indicator
-        if (widget.file.isDocument)
+        if (widget.file.isDocument && !widget.file.isDirectory)
           Positioned(
             bottom: 4,
             left: 4,
@@ -149,6 +175,28 @@ class _MediaGridItemState extends State<MediaGridItem> {
               child: Text(
                 widget.file.extension.toUpperCase(),
                 style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
+        // Directory indicator
+        if (widget.file.isDirectory)
+          Positioned(
+            bottom: 4,
+            left: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'FOLDER',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -172,7 +220,30 @@ class _MediaGridItemState extends State<MediaGridItem> {
   }
 
   Widget _buildMediaPreview() {
-    if (widget.file.isImage) {
+    if (widget.file.isDirectory) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder, size: 48, color: Colors.amber[700]),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                widget.file.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (widget.file.isImage) {
       return Image.file(
         File(widget.file.path),
         fit: BoxFit.cover,
@@ -189,7 +260,26 @@ class _MediaGridItemState extends State<MediaGridItem> {
       );
     } else if (widget.file.isDocument) {
       return Center(
-        child: Icon(widget.file.iconData, size: 48, color: Colors.grey[600]),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(widget.file.iconData, size: 48, color: _getFileTypeColor()),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                widget.file.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     } else {
       return _buildErrorPlaceholder();

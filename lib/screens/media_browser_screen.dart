@@ -209,6 +209,16 @@ class _MediaBrowserScreenState extends State<MediaBrowserScreen>
     }
   }
 
+  Future<void> _reloadDocuments() async {
+    setState(() {
+      _documentsPage = 0;
+      _hasMoreDocuments = true;
+      _documents.clear();
+    });
+
+    await _loadDocuments();
+  }
+
   Future<void> _refreshMedia() async {
     setState(() {
       _imagesPage = 0;
@@ -318,9 +328,31 @@ class _MediaBrowserScreenState extends State<MediaBrowserScreen>
   ) {
     if (files.isEmpty) {
       return Center(
-        child: Text(
-          'No files found',
-          style: TextStyle(color: Colors.grey[600], fontSize: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'No files found',
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+
+            // Only show for the Files tab
+            if (_currentTab == 2)
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: ElevatedButton.icon(
+                  onPressed: _reloadDocuments,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Scan for Files'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     }
@@ -397,7 +429,31 @@ class _MediaBrowserScreenState extends State<MediaBrowserScreen>
           ],
         );
       case 2:
-        return _buildGridView(_documents, _hasMoreDocuments, _loadDocuments);
+        return Column(
+          children: [
+            if (_documents.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Rescan for files',
+                      onPressed: _reloadDocuments,
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: _buildGridView(
+                _documents,
+                _hasMoreDocuments,
+                _loadDocuments,
+              ),
+            ),
+          ],
+        );
       default:
         return const SizedBox();
     }
@@ -450,9 +506,9 @@ class _MediaBrowserScreenState extends State<MediaBrowserScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Images'),
+            Tab(text: 'Photos'),
             Tab(text: 'Videos'),
-            Tab(text: 'Documents'),
+            Tab(text: 'Files'),
           ],
         ),
       ),
